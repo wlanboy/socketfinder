@@ -1,0 +1,14 @@
+---
+- name: discover_sockets.py auf Remote kopieren
+  copy:
+    src: discover_sockets.py
+    dest: /tmp/discover_sockets.py
+    mode: '0755'
+
+- name: Sockets entdecken
+  shell: python3 /tmp/discover_sockets.py
+  register: socket_raw
+
+- name: Socketliste in strukturierte Objekte umwandeln
+  set_fact:
+    socket_list: "{{ socket_raw.stdout | from_json }}"

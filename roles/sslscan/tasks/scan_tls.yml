@@ -1,0 +1,57 @@
+---
+- name: TLS-Ergebnisliste initialisieren
+  set_fact:
+    tls_results: []
+
+- name: tls_scan.py auf Remote kopieren
+  copy:
+    src: tls_scan.py
+    dest: /tmp/tls_scan.py
+    mode: '0755'
+
+# Async Jobs starten
+- name: TLS-Scan async starten
+  loop: "{{ socket_list }}"
+  loop_control:
+    loop_var: socket
+  shell: |
+    python3 /tmp/tls_scan.py "{{ socket.ip }}" "{{ socket.port }}" "{{ socket.pid }}"
+  async: 30
+  poll: 0
+  register: tls_async_jobs
+
+# Async Ergebnisse einsammeln
+- name: TLS-Scan Ergebnisse einsammeln
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: tls_async_results
+  until: tls_async_results.finished
+  retries: 30
+  delay: 1
+  loop: "{{ tls_async_jobs.results }}"
+  loop_control:
+    loop_var: item
+
+# Ergebnisse parsen
+- name: TLS-Scan Ergebnisse parsen
+  loop: "{{ range(0, tls_async_results.results | length) | list }}"
+  loop_control:
+    loop_var: idx
+  vars:
+    socket: "{{ socket_list[idx] }}"
+    result: "{{ tls_async_results.results[idx].stdout | from_json }}"
+  set_fact:
+    tls_results: "{{ tls_results + [ {
+      'ip': result.ip,
+      'port': result.port,
+      'pid': result.pid,
+      'process': result.process,
+      'tls_version': result.tls_version,
+      'cipher': result.cipher,
+      'issuer': result.issuer,
+      'subject': result.subject,
+      'not_after': result.not_after,
+      'san': result.san,
+      'chain': result.chain,
+      'error': result.error
+      } ] }}"
