@@ -1,0 +1,5 @@
+---
+
+- include_tasks: discover_sockets.yml
+- include_tasks: scan_tls.yml
+- include_tasks: write_csv.yml
