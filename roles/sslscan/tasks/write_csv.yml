@@ -2,7 +2,7 @@
 - name: CSV-Datei initialisieren (TLS OK)
   copy:
     dest: /tmp/tls_results.csv
-    content: "ip,port,pid,tls_version,cipher,issuer,subject,not_after,san,chain\n"
+    content: "ip,port,pid,process,tls_version,cipher,issuer,subject,not_after,san,chain\n"
     mode: '0644'
 
 - name: CSV-Datei initialisieren (TLS Fehler)
