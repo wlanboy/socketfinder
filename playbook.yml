@@ -1,0 +1,42 @@
+---
+- name: TLS-Scan auf allen Hosts durchführen
+  hosts: gmkservers
+  gather_facts: false
+  roles:
+    - sslscan
+
+- name: Ergebnisse einsammeln
+  hosts: gmkservers
+  gather_facts: false
+  tasks:
+    - name: host.csv holen
+      fetch:
+        src: /tmp/tls_results.csv
+        dest: "./results/{{ inventory_hostname }}_tls.csv"
+        flat: yes
+
+    - name: host_error.csv holen
+      fetch:
+        src: /tmp/tls_errors.csv
+        dest: "./results/{{ inventory_hostname }}_errors.csv"
+        flat: yes
+
+    - name: Remote CSV löschen
+      file:
+        path: "/home/{{ ansible_user }}/{{ inventory_hostname }}.csv"
+        state: absent
+
+    - name: Remote CSV löschen
+      file:
+        path: "/home/{{ ansible_user }}/{{ inventory_hostname }}_errors.csv"
+        state: absent
+
+    - name: Python Script löschen
+      file:
+        path: "/tmp/tls_scan.py"
+        state: absent
+
+    - name: Python Script löschen
+      file:
+        path: "/tmp/discover_sockets.py"
+        state: absent
