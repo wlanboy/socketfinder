@@ -1,0 +1,29 @@
+# ignored_sockets.yml
+ignored_ports:
+  - { socket: "127.0.0.1:4883",   comment: "Lokaler Datenbank/Broker-Dienst" }
+  - { socket: "127.0.0.53%lo:53", comment: "systemd-resolved DNS Stub-Resolver (lokal)" }
+  - { socket: "127.0.0.54:53",    comment: "Alternativer lokaler DNS-Resolver" }
+  - { socket: "::22",             comment: "Openssh server" }
+  - { socket: "0.0.0.0:22",             comment: "Openssh server" }
+  - { socket: "0.0.0.0:139",      comment: "Samba NetBIOS" }
+  - { socket: "0.0.0.0:445",      comment: "Samba Active Directory / SMB" }
+  - { socket: "::139",           comment: "Samba NetBIOS IPv6" }
+  - { socket: "::445",           comment: "Samba SMB IPv6" }
+  - { socket: "0.0.0.0:631",      comment: "CUPS Druckserver (Global)" }
+  - { socket: "::631",           comment: "CUPS Druckserver IPv6" }
+  - { socket: "127.0.0.1:631",    comment: "CUPS Druckdienst (nur lokaler Zugriff)" }  
+  - { socket: "0.0.0.0:111",      comment: "RPCbind Portmapper" }
+  - { socket: "::111",           comment: "RPCbind Portmapper IPv6" }
+  - { socket: "0.0.0.0:25",       comment: "SMTP Mailserver (STARTTLS statt TLS)" }
+  - { socket: "192.168.122.1:53", comment: "libvirt/KVM Virtuelle Bridge DNS" }
+  - { socket: "127.0.0.1:10010",  comment: "Kubelet / Containerd Metriken" }
+  - { socket: "127.0.0.1:10248",  comment: "Kubelet Healthz (lokal)" }
+  - { socket: "127.0.0.1:10249",  comment: "Kube-Proxy Metriken (lokal)" }
+  - { socket: "127.0.0.1:10256",  comment: "Kube-Proxy Healthz (lokal)" }
+  - { socket: "127.0.0.1:10257",  comment: "Kube-Controller-Manager (sicherer Port)" }
+  - { socket: "127.0.0.1:10258",  comment: "Cloud-Controller-Manager" }
+  - { socket: "127.0.0.1:10259",  comment: "Kube-Scheduler (sicherer Port)" }
+  - { socket: "127.0.0.1:6444",   comment: "K3s Local API Proxy" }
+  - { socket: "0.0.0.0:111",      comment: "RPCbind Portmapper (kein TLS)" }
+  - { socket: "::111",           comment: "RPCbind Portmapper IPv6 (kein TLS)" }
+  - { socket: "192.168.178.38:7946", comment: "Memberlist/Gossip Cluster-Kommunikation" }
