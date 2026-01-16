@@ -1,4 +1,9 @@
 ---
+- name: Filterliste laden
+  include_vars:
+    file: ignored_sockets.yml
+    name: ignore_data
+
 - name: discover_sockets.py auf Remote kopieren
   copy:
     src: discover_sockets.py
@@ -6,7 +11,8 @@
     mode: '0755'
 
 - name: Sockets entdecken
-  shell: python3 /tmp/discover_sockets.py
+  shell: "python3 /tmp/discover_sockets.py --ignore '{{ ignore_data.ignored_ports | map(attribute='socket') | join(',') }}'"
+  become: true
   register: socket_raw
 
 - name: Socketliste in strukturierte Objekte umwandeln
