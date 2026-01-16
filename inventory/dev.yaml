@@ -4,5 +4,6 @@ all:
       hosts:
         gmk:
         gmkc:
+        localhost: 
       vars:
         ansible_user: "samuel"
