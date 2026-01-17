@@ -13,3 +13,10 @@ ansible-playbook -i inventory/dev.yaml playbook.yml -K
 ```bash
 ansible-playbook -i inventory/dev.yaml playbook.yml --limit localhost -K
 ```
+
+## test tls_scan
+```bash
+python3 roles/sslscan/files/tls_scan.py <ip> <port> <pid> <inventory_hostname>
+
+python3 roles/sslscan/files/tls_scan.py 192.168.178.91 8448 0 gmk.lan
+```
