@@ -1,3 +1,11 @@
+## dependencies
+```bash
+uv add pandas
+uv add jinja2
+uv add python-dateutil
+
+uv run report.py
+```
 
 ## test connection
 ```bash
