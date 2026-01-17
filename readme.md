@@ -20,6 +20,7 @@ ansible-playbook -i inventory/dev.yaml playbook.yml -K
 ## find all open sockets with ssl information local
 ```bash
 ansible-playbook -i inventory/dev.yaml playbook.yml --limit localhost -K
+ansible-playbook -i inventory/dev.yaml playbook.yml --limit gmk.lan -K
 ```
 
 ## test tls_scan
