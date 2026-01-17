@@ -32,7 +32,6 @@
   loop_control:
     loop_var: item
 
-# Ergebnisse parsen
 - name: TLS-Scan Ergebnisse parsen
   loop: "{{ range(0, tls_async_results.results | length) | list }}"
   loop_control:
@@ -53,5 +52,6 @@
       'not_after': result.not_after,
       'san': result.san,
       'chain': result.chain,
+      'seclevel': result.seclevel,
       'error': result.error
       } ] }}"

@@ -2,19 +2,19 @@
 - name: CSV-Datei initialisieren (TLS OK)
   copy:
     dest: /tmp/tls_results.csv
-    content: "ip,port,pid,process,tls_version,cipher,issuer,subject,not_after,san,chain\n"
+    content: "ip,port,pid,process,tls_version,cipher,issuer,subject,not_after,san,chain,seclevel\n"
     mode: '0644'
 
 - name: CSV-Datei initialisieren (TLS Fehler)
   copy:
     dest: /tmp/tls_errors.csv
-    content: "ip,port,pid,error\n"
+    content: "ip,port,pid,process,error,seclevel\n"
     mode: '0644'
 
 - name: CSV-Daten anhängen (TLS OK)
   lineinfile:
     path: /tmp/tls_results.csv
-    line: "{{ item.ip }},{{ item.port }},{{ item.pid }},{{ item.process }},{{ item.tls_version }},{{ item.cipher }},{{ item.issuer }},{{ item.subject }},{{ item.not_after }},{{ item.san }},{{ item.chain | join(';') }}"
+    line: "{{ item.ip }},{{ item.port }},{{ item.pid }},{{ item.process }},{{ item.tls_version }},{{ item.cipher }},{{ item.issuer }},{{ item.subject }},{{ item.not_after }},{{ item.san }},{{ item.chain | join(';') }},{{ item.seclevel }}"
     insertafter: EOF
   loop: "{{ tls_results }}"
   when: item.error == ""
@@ -22,7 +22,7 @@
 - name: CSV-Daten anhängen (TLS Fehler)
   lineinfile:
     path: /tmp/tls_errors.csv
-    line: "{{ item.ip }},{{ item.port }},{{ item.pid }},{{ item.process }},{{ item.error }}"
+    line: "{{ item.ip }},{{ item.port }},{{ item.pid }},{{ item.process }},{{ item.error }},{{ item.seclevel }}"
     insertafter: EOF
   loop: "{{ tls_results }}"
   when: item.error != ""
