@@ -25,7 +25,43 @@ def scan_tls(ip, port, pid, inventory_hostname):
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
-    ctx.set_ciphers('DEFAULT@SECLEVEL=1')
+    # OpenSSL Security Levels (SECLEVEL):
+    #
+    # SECLEVEL 0:
+    #   - Keine Sicherheitsanforderungen
+    #   - Erlaubt extrem alte/unsichere Algorithmen (z. B. MD5, RC4, 40-bit Ciphers)
+    #   - Nur für Legacy-Systeme geeignet
+    #
+    # SECLEVEL 1:
+    #   - Minimale Sicherheit (häufiger Standard)
+    #   - RSA/DH/DSA >= 1024 Bit
+    #   - SHA-1 noch erlaubt
+    #   - TLS 1.0/1.1 erlaubt
+    #   - Gut für alte Server/Appliances
+    #
+    # SECLEVEL 2:
+    #   - Moderne Mindeststandards (empfohlen)
+    #   - RSA/DH/DSA >= 2048 Bit
+    #   - SHA-1 für Signaturen verboten
+    #   - TLS 1.2+ erforderlich
+    #   - Viele ältere Server funktionieren hier nicht mehr
+    #
+    # SECLEVEL 3:
+    #   - Hohe Sicherheit
+    #   - RSA/DH >= 3072 Bit, ECC >= 256 Bit
+    #   - Nur starke Cipher Suites
+    #   - SHA-1 komplett verboten
+    #
+    # SECLEVEL 4:
+    #   - Sehr hohe Sicherheit
+    #   - RSA/DH >= 4096 Bit, ECC >= 384 Bit
+    #   - Nur sehr starke Algorithmen
+    #
+    # SECLEVEL 5:
+    #   - Extrem restriktiv
+    #   - RSA/DH >= 8192 Bit, ECC >= 512 Bit
+    #   - Praktisch kaum kompatibel mit realen Servern
+    ctx.set_ciphers('DEFAULT@SECLEVEL=2')
 
     # STRATEGIE: 1. SNI (Vhost), 2. Ohne SNI (Fallback/Legacy)
     success = False
