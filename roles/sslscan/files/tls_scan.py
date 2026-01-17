@@ -3,16 +3,29 @@ import ssl
 import socket
 import json
 import subprocess
+import sys
+from typing import Optional
 from cryptography import x509
-from cryptography.x509.oid import NameOID, ExtensionOID, ExtendedKeyUsageOID
+from cryptography.x509.oid import NameOID, ExtensionOID
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
+
+# ------------------------------------------------------------
+# Konstanten
+# ------------------------------------------------------------
+CONNECT_TIMEOUT = 3
+MAX_SECLEVEL = 5
+
+
+def output_result(result: dict) -> None:
+    """Gibt das Ergebnis als JSON auf stdout aus."""
+    print(json.dumps(result), file=sys.stdout, flush=True)
 
 
 # ------------------------------------------------------------
 # Prozessname zu PID ermitteln
 # ------------------------------------------------------------
-def get_process_cmd(pid):
+def get_process_cmd(pid: str) -> str:
     if not pid or pid in ["", "0"]:
         return ""
     try:
@@ -20,18 +33,18 @@ def get_process_cmd(pid):
             ["ps", "-p", str(pid), "-o", "cmd="],
             stderr=subprocess.DEVNULL
         ).decode().strip()
-    except:
+    except (subprocess.SubprocessError, OSError):
         return ""
 
 
 # ------------------------------------------------------------
 # RFC‑konformer Hostname‑Check
 # ------------------------------------------------------------
-def check_hostname_rfc(expected_hostname, cert):
+def check_hostname_rfc(expected_hostname: str, cert: x509.Certificate) -> tuple[bool, str, str]:
     try:
         san_ext = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
         san_dns = san_ext.value.get_values_for_type(x509.DNSName)
-    except Exception:
+    except x509.ExtensionNotFound:
         san_dns = []
 
     if san_dns:
@@ -40,13 +53,18 @@ def check_hostname_rfc(expected_hostname, cert):
         try:
             cn = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
             presented = [cn]
-        except Exception:
+        except (IndexError, ValueError):
             presented = []
 
-    def match(host, pattern):
-        if pattern.startswith("*."):
-            return host.endswith(pattern[1:])
-        return host == pattern
+    def match(host: str, pattern: str) -> bool:
+        host_lower = host.lower()
+        pattern_lower = pattern.lower()
+        if pattern_lower.startswith("*."):
+            suffix = pattern_lower[2:]
+            if host_lower == suffix:
+                return False
+            return host_lower.endswith("." + suffix) and host_lower.count(".") == suffix.count(".") + 1
+        return host_lower == pattern_lower
 
     for p in presented:
         if match(expected_hostname, p):
@@ -58,14 +76,16 @@ def check_hostname_rfc(expected_hostname, cert):
 # ------------------------------------------------------------
 # TLS‑Verbindung mit bestimmtem SECLEVEL testen
 # ------------------------------------------------------------
-def try_connect(ip, port, sni, seclevel):
+def try_connect(ip: str, port: int | str, sni: Optional[str], seclevel: int) -> Optional[ssl.SSLSocket]:
+    sock = None
+    ssock = None
     try:
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
         ctx.set_ciphers(f"DEFAULT@SECLEVEL={seclevel}")
 
-        sock = socket.create_connection((ip, int(port)), timeout=3)
+        sock = socket.create_connection((ip, int(port)), timeout=CONNECT_TIMEOUT)
         ssock = ctx.wrap_socket(sock, server_hostname=sni)
 
         if ssock.getpeercert(binary_form=True) is None:
@@ -74,14 +94,18 @@ def try_connect(ip, port, sni, seclevel):
 
         return ssock
 
-    except Exception:
+    except (ssl.SSLError, socket.error, OSError):
+        if ssock:
+            ssock.close()
+        elif sock:
+            sock.close()
         return None
 
 
 # ------------------------------------------------------------
 # Hauptfunktion: TLS‑Scan
 # ------------------------------------------------------------
-def scan_tls(ip, port, pid, inventory_hostname):
+def scan_tls(ip: str, port: int | str, pid: str, inventory_hostname: str) -> None:
     target_ip = "127.0.0.1" if ip in ["*", "0.0.0.0", "::", "::1"] else ip
 
     result = {
@@ -114,7 +138,7 @@ def scan_tls(ip, port, pid, inventory_hostname):
     # 1. Höchsten funktionierenden SECLEVEL finden
     # ------------------------------------------------------------
     working_level = None
-    for level in reversed(range(0, 6)):
+    for level in reversed(range(0, MAX_SECLEVEL + 1)):
         ssock = try_connect(target_ip, port, inventory_hostname, level)
         if ssock:
             working_level = level
@@ -122,8 +146,8 @@ def scan_tls(ip, port, pid, inventory_hostname):
             break
 
     if working_level is None:
-        result["error"] = "No TLS detected (SECLEVEL 0–5 all failed)"
-        print(json.dumps(result))
+        result["error"] = f"No TLS detected (SECLEVEL 0–{MAX_SECLEVEL} all failed)"
+        output_result(result)
         return
 
     result["seclevel"] = working_level
@@ -174,7 +198,7 @@ def scan_tls(ip, port, pid, inventory_hostname):
             if hasattr(ssock, "get_verified_chain"):
                 try:
                     der_chain = [c.as_der() for c in ssock.get_verified_chain()]
-                except:
+                except (AttributeError, ssl.SSLError):
                     pass
 
             if not der_chain:
@@ -182,7 +206,7 @@ def scan_tls(ip, port, pid, inventory_hostname):
                 if not leaf:
                     result["error"] = "TLS handshake succeeded but no certificate was provided"
                     ssock.close()
-                    print(json.dumps(result))
+                    output_result(result)
                     return
                 der_chain = [leaf]
 
@@ -197,14 +221,14 @@ def scan_tls(ip, port, pid, inventory_hostname):
                     # Leaf‑Zertifikat
                     result["subject"] = subject
                     result["issuer"] = cert.issuer.rfc4514_string()
-                    result["not_after"] = cert.not_valid_after.isoformat()
+                    result["not_after"] = cert.not_valid_after_utc.isoformat()
 
                     # SAN
                     try:
                         ext = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
                         san_list = ext.value.get_values_for_type(x509.DNSName)
                         result["san"] = ";".join(san_list)
-                    except:
+                    except x509.ExtensionNotFound:
                         pass
 
                     # SHA‑256 Fingerprint
@@ -220,17 +244,15 @@ def scan_tls(ip, port, pid, inventory_hostname):
                         if ku.key_cert_sign: usages.append("KeyCertSign")
                         if ku.crl_sign: usages.append("CRLSign")
                         result["key_usage"] = ";".join(usages)
-                    except:
+                    except x509.ExtensionNotFound:
                         pass
 
                     # Extended Key Usage
                     try:
                         eku = cert.extensions.get_extension_for_oid(ExtensionOID.EXTENDED_KEY_USAGE).value
-                        eku_list = []
-                        for oid in eku:
-                            eku_list.append(oid._name)
+                        eku_list = [oid._name for oid in eku]
                         result["ext_key_usage"] = ";".join(eku_list)
-                    except:
+                    except x509.ExtensionNotFound:
                         pass
 
                     # Hostname‑Mismatch
@@ -249,13 +271,12 @@ def scan_tls(ip, port, pid, inventory_hostname):
         finally:
             ssock.close()
 
-    print(json.dumps(result))
+    output_result(result)
 
 
 # ------------------------------------------------------------
 # CLI‑Entry
 # ------------------------------------------------------------
 if __name__ == "__main__":
-    import sys
     args = sys.argv + ["", "", "", "", ""]
     scan_tls(args[1], args[2], args[3], args[4])
