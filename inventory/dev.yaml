@@ -3,7 +3,7 @@ all:
     gmkservers:
       hosts:
         gmk.lan:
-        gmkc.lan:
+        gmkchost.lan:
         localhost: 
       vars:
         ansible_user: "samuel"
