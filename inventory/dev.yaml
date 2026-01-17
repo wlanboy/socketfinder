@@ -2,8 +2,8 @@ all:
   children:
     gmkservers:
       hosts:
-        gmk:
-        gmkc:
+        gmk.lan:
+        gmkc.lan:
         localhost: 
       vars:
         ansible_user: "samuel"
