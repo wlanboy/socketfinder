@@ -1,2 +1,4 @@
 results/*.csv
 report.html
+__pycache__/
+roles/sslscan/files/__pycache__/
