@@ -5,15 +5,22 @@ import re
 import argparse
 
 def parse_ss_output(ignore_list):
+    """
+    Parst die Ausgabe von 'ss -tlnp' und gibt eine Liste von Sockets zurück.
+
+    Returns:
+        list: Liste von Socket-Dictionaries oder ein Dict mit 'error' Key bei Fehlern.
+    """
     try:
         # Wir nutzen -p für Prozesse, -l für LISTEN, -t für TCP, -n für numerisch
         output = subprocess.check_output(
             ["ss", "-tlnp"],
             stderr=subprocess.DEVNULL
         ).decode("utf-8", errors="replace")
-    except Exception as e:
-        print(json.dumps({"error": str(e)}))
-        return
+    except FileNotFoundError:
+        return {"error": "ss command not found", "sockets": []}
+    except subprocess.CalledProcessError as e:
+        return {"error": f"ss command failed with exit code {e.returncode}", "sockets": []}
 
     sockets = []
 
@@ -30,9 +37,24 @@ def parse_ss_output(ignore_list):
         if ":" not in local_addr:
             continue
 
-        # IP und Port extrahieren
-        raw_ip, port = local_addr.rsplit(":", 1)
-        ip = raw_ip.strip("[]").split("%")[0]
+        # IP und Port extrahieren (robust für IPv4 und IPv6)
+        if local_addr.startswith("["):
+            # IPv6 mit Brackets: [::1]:443 oder [fe80::1%eth0]:443
+            bracket_end = local_addr.rfind("]:")
+            if bracket_end == -1:
+                continue
+            ip = local_addr[1:bracket_end].split("%")[0]
+            port = local_addr[bracket_end + 2:]
+        else:
+            # IPv4 oder IPv6 ohne Brackets
+            raw_ip, port = local_addr.rsplit(":", 1)
+            ip = raw_ip.split("%")[0]
+
+        # Port als Integer validieren
+        try:
+            port = int(port)
+        except ValueError:
+            continue
 
         # 2. PID und Prozessname extrahieren (Robust über Regex)
         # Sucht nach users:(("PROZESSNAME",pid=PID,...))
@@ -56,7 +78,7 @@ def parse_ss_output(ignore_list):
             "process": process_name
         })
 
-    print(json.dumps(sockets))
+    return sockets
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -64,4 +86,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     ignore_list = args.ignore.split(",") if args.ignore else []
-    parse_ss_output(ignore_list)
+    result = parse_ss_output(ignore_list)
+    print(json.dumps(result))
