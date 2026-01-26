@@ -6,9 +6,9 @@ import subprocess
 import sys
 from typing import Optional
 from cryptography import x509
-from cryptography.x509.oid import NameOID, ExtensionOID
+from cryptography.x509.oid import ExtensionOID
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
 
 # ------------------------------------------------------------
 # Konstanten
@@ -23,58 +23,7 @@ def output_result(result: dict) -> None:
 
 
 # ------------------------------------------------------------
-# Prozessname zu PID ermitteln
-# ------------------------------------------------------------
-def get_process_cmd(pid: str) -> str:
-    if not pid or pid in ["", "0"]:
-        return ""
-    try:
-        return subprocess.check_output(
-            ["ps", "-p", str(pid), "-o", "cmd="],
-            stderr=subprocess.DEVNULL
-        ).decode().strip()
-    except (subprocess.SubprocessError, OSError):
-        return ""
-
-
-# ------------------------------------------------------------
-# RFC‑konformer Hostname‑Check
-# ------------------------------------------------------------
-def check_hostname_rfc(expected_hostname: str, cert: x509.Certificate) -> tuple[bool, str, str]:
-    try:
-        san_ext = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
-        san_dns = san_ext.value.get_values_for_type(x509.DNSName)
-    except x509.ExtensionNotFound:
-        san_dns = []
-
-    if san_dns:
-        presented = san_dns
-    else:
-        try:
-            cn = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
-            presented = [cn]
-        except (IndexError, ValueError):
-            presented = []
-
-    def match(host: str, pattern: str) -> bool:
-        host_lower = host.lower()
-        pattern_lower = pattern.lower()
-        if pattern_lower.startswith("*."):
-            suffix = pattern_lower[2:]
-            if host_lower == suffix:
-                return False
-            return host_lower.endswith("." + suffix) and host_lower.count(".") == suffix.count(".") + 1
-        return host_lower == pattern_lower
-
-    for p in presented:
-        if match(expected_hostname, p):
-            return False, expected_hostname, p
-
-    return True, expected_hostname, ", ".join(presented) if presented else ""
-
-
-# ------------------------------------------------------------
-# TLS‑Verbindung mit bestimmtem SECLEVEL testen
+# TLS‑Verbindung mit bestimmtem SECLEVEL testen (ohne Verifikation)
 # ------------------------------------------------------------
 def try_connect(ip: str, port: int | str, sni: Optional[str], seclevel: int) -> Optional[ssl.SSLSocket]:
     sock = None
@@ -103,16 +52,61 @@ def try_connect(ip: str, port: int | str, sni: Optional[str], seclevel: int) -> 
 
 
 # ------------------------------------------------------------
+# Zertifikatskette via OpenSSL holen (ohne Verifikation)
+# ------------------------------------------------------------
+def get_chain_via_openssl(ip: str, port: int | str, sni: Optional[str]) -> list[bytes]:
+    """Holt die Zertifikatskette vom Server via openssl s_client."""
+    try:
+        cmd = ["openssl", "s_client", "-connect", f"{ip}:{port}", "-showcerts"]
+        if sni:
+            cmd.extend(["-servername", sni])
+
+        proc = subprocess.run(
+            cmd,
+            input=b"",
+            capture_output=True,
+            timeout=CONNECT_TIMEOUT + 2
+        )
+
+        output = proc.stdout.decode("utf-8", errors="replace")
+
+        # Zertifikate extrahieren
+        certs = []
+        in_cert = False
+        cert_lines = []
+
+        for line in output.splitlines():
+            if "-----BEGIN CERTIFICATE-----" in line:
+                in_cert = True
+                cert_lines = [line]
+            elif "-----END CERTIFICATE-----" in line and in_cert:
+                cert_lines.append(line)
+                pem = "\n".join(cert_lines)
+                # PEM zu DER konvertieren
+                from cryptography import x509 as x509_mod
+                cert = x509_mod.load_pem_x509_certificate(pem.encode())
+                certs.append(cert.public_bytes(serialization.Encoding.DER))
+                in_cert = False
+                cert_lines = []
+            elif in_cert:
+                cert_lines.append(line)
+
+        return certs
+
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
+        return []
+
+
+# ------------------------------------------------------------
 # Hauptfunktion: TLS‑Scan
 # ------------------------------------------------------------
-def scan_tls(ip: str, port: int | str, pid: str, inventory_hostname: str) -> None:
+def scan_tls(ip: str, port: int | str, process: str, inventory_hostname: str) -> None:
     target_ip = "127.0.0.1" if ip in ["*", "0.0.0.0", "::", "::1"] else ip
 
     result = {
         "ip": ip,
         "port": port,
-        "pid": pid,
-        "process": get_process_cmd(pid),
+        "process": process,
         "tls_version": "",
         "cipher": "",
         "kex_info": "",
@@ -127,9 +121,7 @@ def scan_tls(ip: str, port: int | str, pid: str, inventory_hostname: str) -> Non
         "not_after": "",
         "san": "",
         "chain": "",
-        "hostname_mismatch": "",
-        "hostname_expected": "",
-        "hostname_presented": "",
+        "chain_complete": "",
         "seclevel": "",
         "error": ""
     }
@@ -192,15 +184,11 @@ def scan_tls(ip: str, port: int | str, pid: str, inventory_hostname: str) -> Non
             result["session_resumed"] = ssock.session_reused
 
             # ------------------------------------------------------------
-            # Zertifikatskette
+            # Zertifikatskette via OpenSSL holen
             # ------------------------------------------------------------
-            der_chain = []
-            if hasattr(ssock, "get_verified_chain"):
-                try:
-                    der_chain = [c.as_der() for c in ssock.get_verified_chain()]
-                except (AttributeError, ssl.SSLError):
-                    pass
+            der_chain = get_chain_via_openssl(target_ip, port, sni_host)
 
+            # Fallback auf Leaf-Zertifikat wenn OpenSSL fehlschlägt
             if not der_chain:
                 leaf = ssock.getpeercert(binary_form=True)
                 if not leaf:
@@ -209,6 +197,9 @@ def scan_tls(ip: str, port: int | str, pid: str, inventory_hostname: str) -> Non
                     output_result(result)
                     return
                 der_chain = [leaf]
+
+            # Chain ist vollständig wenn mehr als nur das Leaf-Zertifikat gesendet wird
+            result["chain_complete"] = len(der_chain) > 1
 
             chain_subjects = []
 
@@ -221,7 +212,11 @@ def scan_tls(ip: str, port: int | str, pid: str, inventory_hostname: str) -> Non
                     # Leaf‑Zertifikat
                     result["subject"] = subject
                     result["issuer"] = cert.issuer.rfc4514_string()
-                    result["not_after"] = cert.not_valid_after_utc.isoformat()
+                    # Kompatibilität: not_valid_after_utc (neu) vs not_valid_after (alt)
+                    if hasattr(cert, "not_valid_after_utc"):
+                        result["not_after"] = cert.not_valid_after_utc.isoformat()
+                    else:
+                        result["not_after"] = cert.not_valid_after.isoformat()
 
                     # SAN
                     try:
@@ -254,12 +249,6 @@ def scan_tls(ip: str, port: int | str, pid: str, inventory_hostname: str) -> Non
                         result["ext_key_usage"] = ";".join(eku_list)
                     except x509.ExtensionNotFound:
                         pass
-
-                    # Hostname‑Mismatch
-                    mismatch, expected, presented = check_hostname_rfc(inventory_hostname, cert)
-                    result["hostname_mismatch"] = mismatch
-                    result["hostname_expected"] = expected
-                    result["hostname_presented"] = presented
 
             result["chain"] = " | ".join(chain_subjects)
             result["error"] = ""

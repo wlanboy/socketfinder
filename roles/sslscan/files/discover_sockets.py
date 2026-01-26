@@ -2,7 +2,14 @@
 import subprocess
 import json
 import re
+import sys
 import argparse
+
+
+def output_result(result: list | dict) -> None:
+    """Gibt das Ergebnis als JSON auf stdout aus."""
+    print(json.dumps(result), file=sys.stdout, flush=True)
+
 
 SYSTEMD_NAMES = {
     "systemd",
@@ -12,6 +19,20 @@ SYSTEMD_NAMES = {
     "systemd-timesyncd",
     "systemd-udevd"
 }
+
+
+def get_process_cmd(pid: str) -> str:
+    """Ermittelt den vollen Prozessbefehl anhand der PID."""
+    if not pid or pid in ["", "0"]:
+        return ""
+    try:
+        return subprocess.check_output(
+            ["ps", "-p", str(pid), "-o", "cmd="],
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except (subprocess.SubprocessError, OSError):
+        return ""
+
 
 def detect_systemd(ip, port, pid, process_name, line):
     """
@@ -91,6 +112,10 @@ def parse_ss_output(ignore_list):
         if proc_match:
             process_name = proc_match.group(1)
 
+        # nsr*-Prozesse ignorieren (NetWorker)
+        if process_name.startswith("nsr"):
+            continue
+
         # systemd-Erkennung
         is_systemd = detect_systemd(ip, port, pid, process_name, line)
 
@@ -98,7 +123,7 @@ def parse_ss_output(ignore_list):
             "ip": ip,
             "port": port,
             "pid": pid,
-            "process": process_name,
+            "process": get_process_cmd(pid),
             "systemd": is_systemd
         })
 
@@ -112,4 +137,4 @@ if __name__ == "__main__":
 
     ignore_list = args.ignore.split(",") if args.ignore else []
     result = parse_ss_output(ignore_list)
-    print(json.dumps(result))
+    output_result(result)

@@ -2,19 +2,19 @@
 - name: CSV-Datei initialisieren (TLS OK)
   copy:
     dest: /tmp/tls_results.csv
-    content: "ip,port,pid,process,tls_version,cipher,kex_info,alpn,compression,session_resumed,fingerprint_sha256,key_usage,ext_key_usage,issuer,subject,not_after,san,chain,hostname_mismatch,hostname_expected,hostname_presented,seclevel\n"
+    content: "ip,port,process,tls_version,cipher,kex_info,alpn,compression,session_resumed,fingerprint_sha256,key_usage,ext_key_usage,issuer,subject,not_after,san,chain,chain_complete,seclevel\n"
     mode: '0644'
 
 - name: CSV-Datei initialisieren (TLS Fehler)
   copy:
     dest: /tmp/tls_errors.csv
-    content: "ip,port,pid,process,error,hostname_expected,hostname_presented,seclevel\n"
+    content: "ip,port,process,error,seclevel\n"
     mode: '0644'
 
 - name: CSV-Daten anhängen (TLS OK)
   lineinfile:
     path: /tmp/tls_results.csv
-    line: "{{ item.ip }},{{ item.port }},{{ item.pid }},{{ item.process }},{{ item.tls_version }},{{ item.cipher }},{{ item.kex_info }},{{ item.alpn }},{{ item.compression }},{{ item.session_resumed }},{{ item.fingerprint_sha256 }},{{ item.key_usage }},{{ item.ext_key_usage }},{{ item.issuer }},{{ item.subject }},{{ item.not_after }},{{ item.san }},{{ item.chain }},{{ item.hostname_mismatch }},{{ item.hostname_expected }},{{ item.hostname_presented }},{{ item.seclevel }}"
+    line: '"{{ item.ip }}","{{ item.port }}","{{ item.process | replace(''"'', ''""'') }}","{{ item.tls_version }}","{{ item.cipher }}","{{ item.kex_info }}","{{ item.alpn }}","{{ item.compression }}","{{ item.session_resumed }}","{{ item.fingerprint_sha256 }}","{{ item.key_usage }}","{{ item.ext_key_usage }}","{{ item.issuer | replace(''"'', ''""'') }}","{{ item.subject | replace(''"'', ''""'') }}","{{ item.not_after }}","{{ item.san }}","{{ item.chain | replace(''"'', ''""'') }}","{{ item.chain_complete }}","{{ item.seclevel }}"'
     insertafter: EOF
   loop: "{{ tls_results }}"
   when: item.error == ""
@@ -22,7 +22,7 @@
 - name: CSV-Daten anhängen (TLS Fehler)
   lineinfile:
     path: /tmp/tls_errors.csv
-    line: "{{ item.ip }},{{ item.port }},{{ item.pid }},{{ item.process }},{{ item.error }},{{ item.hostname_expected }},{{ item.hostname_presented }},{{ item.seclevel }}"
+    line: '"{{ item.ip }}","{{ item.port }}","{{ item.process | replace(''"'', ''""'') }}","{{ item.error | replace(''"'', ''""'') }}","{{ item.seclevel }}"'
     insertafter: EOF
   loop: "{{ tls_results }}"
   when: item.error != ""

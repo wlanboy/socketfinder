@@ -15,7 +15,7 @@
   loop_control:
     loop_var: socket
   shell: |
-    python3 /tmp/tls_scan.py "{{ socket.ip }}" "{{ socket.port }}" "{{ socket.pid }}" "{{ inventory_hostname }}"
+    python3 /tmp/tls_scan.py "{{ socket.ip }}" "{{ socket.port }}" "{{ socket.process }}" "{{ inventory_hostname }}"
   async: 30
   poll: 0
   register: tls_async_jobs
@@ -44,7 +44,6 @@
     tls_results: "{{ tls_results + [ {
       'ip': result.ip,
       'port': result.port,
-      'pid': result.pid,
       'process': result.process,
       'tls_version': result.tls_version,
       'cipher': result.cipher,
@@ -60,9 +59,7 @@
       'not_after': result.not_after,
       'san': result.san,
       'chain': result.chain,
-      'hostname_mismatch': result.hostname_mismatch,
-      'hostname_expected': result.hostname_expected,
-      'hostname_presented': result.hostname_presented,
+      'chain_complete': result.chain_complete,
       'seclevel': result.seclevel,
       'error': result.error
       } ] }}"

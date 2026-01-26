@@ -25,7 +25,9 @@ ansible-playbook -i inventory/dev.yaml playbook.yml --limit gmk.lan -K
 
 ## test tls_scan
 ```bash
-python3 roles/sslscan/files/tls_scan.py <ip> <port> <pid> <inventory_hostname>
+python3 roles/sslscan/files/tls_scan.py <ip> <port> <inventory_hostname> <level>
 
-python3 roles/sslscan/files/tls_scan.py 192.168.178.91 8448 0 gmk.lan
+python3 roles/sslscan/files/tls_scan.py 192.168.178.91 8448 gmk.lan 5
+
+python3 roles/sslscan/files/tls_scan.py 192.168.178.91 2443 gmk.lan 5
 ```
