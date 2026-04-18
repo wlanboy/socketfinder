@@ -67,6 +67,18 @@ ansible-playbook -i inventory/dev.yaml playbook.yml --limit localhost -K
 ansible-playbook -i inventory/dev.yaml playbook.yml --limit gmk.lan -K
 ```
 
+### HTML-Report erzeugen
+
+Der Report-Schritt ist optional und wird nur ausgeführt, wenn das Tag `report` angegeben wird:
+
+```bash
+# Scan + Report in einem Lauf
+ansible-playbook -i inventory/dev.yaml playbook.yml -K --tags report
+
+# Nur Report aus bereits vorhandenen CSVs
+uv run report.py
+```
+
 ## Ergebnisse
 
 Nach dem Lauf liegen die CSV-Dateien im Verzeichnis `results/`:
@@ -107,9 +119,14 @@ python3 roles/sslscan/files/tls_scan.py 192.168.178.91 2443 nginx gmk.lan
 ```
 socketfinder/
 ├── playbook.yml                        # Haupt-Playbook
+├── report.py                           # HTML-Report-Generator (optional)
+├── templates/
+│   └── report.html.j2                  # Jinja2-Template für den Report
 ├── inventory/
 │   └── dev.yaml                        # Ansible-Inventory
 ├── results/                            # CSV-Ausgabe (nach dem Scan)
+│   ├── <host>_tls.csv
+│   └── <host>_errors.csv
 └── roles/sslscan/
     ├── ignored_sockets.yml             # Ignorier-Liste
     ├── files/
