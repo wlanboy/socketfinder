@@ -234,11 +234,16 @@ def scan_tls(ip: str, port: int | str, process: str, inventory_hostname: str) ->
                     try:
                         ku = cast(KeyUsage, cert.extensions.get_extension_for_oid(ExtensionOID.KEY_USAGE).value)
                         usages = []
-                        if ku.digital_signature: usages.append("DigitalSignature")
-                        if ku.key_encipherment: usages.append("KeyEncipherment")
-                        if ku.key_agreement: usages.append("KeyAgreement")
-                        if ku.key_cert_sign: usages.append("KeyCertSign")
-                        if ku.crl_sign: usages.append("CRLSign")
+                        if ku.digital_signature:
+                            usages.append("DigitalSignature")
+                        if ku.key_encipherment:
+                            usages.append("KeyEncipherment")
+                        if ku.key_agreement:
+                            usages.append("KeyAgreement")
+                        if ku.key_cert_sign:
+                            usages.append("KeyCertSign")
+                        if ku.crl_sign:
+                            usages.append("CRLSign")
                         result["key_usage"] = ";".join(usages)
                     except x509.ExtensionNotFound:
                         pass
