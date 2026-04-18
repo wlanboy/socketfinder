@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import os
 import pandas as pd
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
@@ -25,7 +24,7 @@ def classify(row):
 
     try:
         seclevel = int(row.get("seclevel", 0))
-    except:
+    except Exception:
         seclevel = 0
 
     if seclevel == 0:
