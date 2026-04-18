@@ -16,7 +16,7 @@
     loop_var: socket
   shell: |
     python3 /tmp/tls_scan.py "{{ socket.ip }}" "{{ socket.port }}" "{{ socket.process }}" "{{ inventory_hostname }}"
-  async: 30
+  async: 120
   poll: 0
   register: tls_async_jobs
 

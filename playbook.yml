@@ -21,15 +21,17 @@
         dest: "./results/{{ inventory_hostname }}_errors.csv"
         flat: yes
 
-    - name: Remote CSV löschen
+    - name: Remote tls_results.csv löschen
       file:
-        path: "/home/{{ ansible_user }}/{{ inventory_hostname }}.csv"
+        path: "/tmp/tls_results.csv"
         state: absent
+      become: true
 
-    - name: Remote CSV löschen
+    - name: Remote tls_errors.csv löschen
       file:
-        path: "/home/{{ ansible_user }}/{{ inventory_hostname }}_errors.csv"
+        path: "/tmp/tls_errors.csv"
         state: absent
+      become: true
 
     - name: Python Script löschen
       file:
