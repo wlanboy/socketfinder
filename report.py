@@ -64,7 +64,7 @@ def main():
         df = pd.concat([df_tls, df_err], ignore_index=True)
 
         df["ampel"] = df.apply(classify, axis=1)
-        df["ampel_sort"] = df["ampel"].map({"red": 0, "yellow": 1, "green": 2})
+        df["ampel_sort"] = df["ampel"].map(lambda x: {"red": 0, "yellow": 1, "green": 2}[x])
         df = df.sort_values("ampel_sort")
 
         hosts[host] = df
