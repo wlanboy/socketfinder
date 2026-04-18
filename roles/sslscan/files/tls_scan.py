@@ -4,8 +4,9 @@ import socket
 import json
 import subprocess
 import sys
-from typing import Optional
+from typing import Optional, cast
 from cryptography import x509
+from cryptography.x509 import KeyUsage, ExtendedKeyUsage
 from cryptography.x509.oid import ExtensionOID
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
@@ -231,7 +232,7 @@ def scan_tls(ip: str, port: int | str, process: str, inventory_hostname: str) ->
 
                     # Key Usage
                     try:
-                        ku = cert.extensions.get_extension_for_oid(ExtensionOID.KEY_USAGE).value
+                        ku = cast(KeyUsage, cert.extensions.get_extension_for_oid(ExtensionOID.KEY_USAGE).value)
                         usages = []
                         if ku.digital_signature: usages.append("DigitalSignature")
                         if ku.key_encipherment: usages.append("KeyEncipherment")
@@ -244,7 +245,7 @@ def scan_tls(ip: str, port: int | str, process: str, inventory_hostname: str) ->
 
                     # Extended Key Usage
                     try:
-                        eku = cert.extensions.get_extension_for_oid(ExtensionOID.EXTENDED_KEY_USAGE).value
+                        eku = cast(ExtendedKeyUsage, cert.extensions.get_extension_for_oid(ExtensionOID.EXTENDED_KEY_USAGE).value)
                         eku_list = [oid._name for oid in eku]
                         result["ext_key_usage"] = ";".join(eku_list)
                     except x509.ExtensionNotFound:
