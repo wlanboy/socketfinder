@@ -9,6 +9,14 @@
   hosts: gmkservers
   gather_facts: false
   tasks:
+    - name: Lokales results/-Verzeichnis anlegen
+      local_action:
+        module: file
+        path: "./results"
+        state: directory
+        mode: '0755'
+      run_once: true
+
     - name: host.csv holen
       fetch:
         src: /tmp/tls_results.csv
@@ -33,12 +41,24 @@
         state: absent
       become: true
 
-    - name: Python Script löschen
+    - name: tls_scan.py löschen
       file:
         path: "/tmp/tls_scan.py"
         state: absent
 
-    - name: Python Script löschen
+    - name: discover_sockets.py löschen
       file:
         path: "/tmp/discover_sockets.py"
         state: absent
+
+- name: HTML-Report erzeugen (optional)
+  hosts: localhost
+  gather_facts: false
+  tags:
+    - report
+  tasks:
+    - name: report.py ausführen
+      local_action:
+        module: command
+        cmd: "python3 report.py"
+        chdir: "{{ playbook_dir }}"
